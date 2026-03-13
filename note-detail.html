@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>编辑手记 - 计划·手记</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    body {
+      -webkit-font-smoothing: antialiased;
+      background-color: #f5f2ee;
+      margin: 0;
+      padding: 0;
+      font-sans: system-ui, -apple-system, sans-serif;
+    }
+    .edit-container {
+      min-height: 100vh;
+      background-color: #fffdfa;
+    }
+    input, textarea {
+      border: none;
+      outline: none;
+      resize: none;
+      background-color: transparent;
+      -webkit-appearance: none;
+    }
+    input:focus, textarea:focus {
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
+      border-radius: 6px;
+      transition: box-shadow 0.2s ease;
+    }
+    .ios-btn {
+      color: #f59e0b;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+    .ios-btn:hover {
+      color: #d97706;
+    }
+    @media (max-width: 768px) {
+      textarea#note-content {
+        min-height: calc(100vh - 180px);
+      }
+    }
+    #note-title::placeholder {
+      color: #94a3b8;
+      font-weight: 400;
+    }
+    #note-content::placeholder {
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="edit-container p-4 md:p-6">
+    <!-- 顶部导航栏 -->
+    <header class="flex justify-between items-center mb-6">
+      <button id="back-btn" class="ios-btn flex items-center gap-1 px-2 py-1">
+        <i class="bi bi-arrow-left"></i> 返回
+      </button>
+      <button id="save-btn" class="ios-btn bg-amber-500 text-white px-5 py-2 rounded-full hover:bg-amber-600 transition shadow-sm">
+        保存
+      </button>
+    </header>
+
+    <!-- 编辑区域 -->
+    <main>
+      <input 
+        type="text" 
+        id="note-title" 
+        placeholder="输入标题（可选）..." 
+        class="w-full text-2xl font-medium mb-6 px-2 py-2"
+      >
+      <textarea 
+        id="note-content" 
+        placeholder="输入手记内容..." 
+        class="w-full min-h-[calc(100vh-200px)] text-base px-2 py-2 leading-relaxed text-stone-700"
+      ></textarea>
+    </main>
+  </div>
+
+  <script src="js/storage.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const titleInput = document.getElementById('note-title');
+      const contentInput = document.getElementById('note-content');
+      const saveBtn = document.getElementById('save-btn');
+      const backBtn = document.getElementById('back-btn');
+      
+      let originalTitle = '';
+      let originalContent = '';
+      const urlParams = new URLSearchParams(window.location.search);
+      const noteIdStr = urlParams.get('id');
+      const noteId = noteIdStr ? Number(noteIdStr) : null;
+      let currentNote = null;
+
+      // 初始化笔记
+      function initNote() {
+        if (noteId && !isNaN(noteId)) {
+          currentNote = NoteStorage.getNoteById(noteId);
+          if (currentNote) {
+            titleInput.value = currentNote.title || '';
+            contentInput.value = currentNote.content || '';
+            originalTitle = titleInput.value;
+            originalContent = contentInput.value;
+          } else {
+            alert('⚠️ 未找到该手记，将创建新笔记');
+            history.replaceState({}, document.title, window.location.pathname);
+          }
+        } else {
+          originalTitle = '';
+          originalContent = '';
+        }
+      }
+
+      // 检查内容是否为空
+      function isContentEmpty() {
+        return !titleInput.value.trim() && !contentInput.value.trim();
+      }
+
+      // 检查内容是否有修改
+      function isContentChanged() {
+        return titleInput.value !== originalTitle || contentInput.value !== originalContent;
+      }
+
+      // 保存笔记
+      function saveNote() {
+        if (isContentEmpty()) {
+          alert('❌ 标题和内容不能同时为空，请至少填写一项');
+          contentInput.focus();
+          return false;
+        }
+
+        const noteData = {
+          title: titleInput.value.trim(),
+          content: contentInput.value.trim()
+        };
+
+        let saveSuccess = false;
+        try {
+          if (noteId && !isNaN(noteId)) {
+            noteData.id = noteId;
+            noteData.createTime = currentNote?.createTime;
+            saveSuccess = NoteStorage.updateNote(noteData);
+          } else {
+            const newNote = NoteStorage.addNote(noteData);
+            saveSuccess = newNote !== null;
+          }
+        } catch (e) {
+          console.error('保存笔记失败：', e);
+          saveSuccess = false;
+        }
+
+        if (saveSuccess) {
+          originalTitle = titleInput.value;
+          originalContent = contentInput.value;
+          alert('✅ 保存成功！');
+          // 跳转到首页并强制显示全部笔记
+          window.location.href = 'index.html?category=all';
+        } else {
+          alert('❌ 保存失败，请重试！');
+        }
+        return saveSuccess;
+      }
+
+      // 返回确认
+      function confirmBack() {
+        if (isContentChanged()) {
+          const confirmLeave = confirm('⚠️ 你有未保存的修改，确定要返回吗？');
+          if (confirmLeave) {
+            window.location.href = 'index.html';
+          }
+        } else {
+          window.location.href = 'index.html';
+        }
+      }
+
+      // 页面离开确认
+      function handleBeforeUnload(e) {
+        if (isContentChanged()) {
+          e.preventDefault();
+          e.returnValue = '你有未保存的修改，确定要离开吗？';
+          return '你有未保存的修改，确定要离开吗？';
+        }
+      }
+
+      // 初始化
+      initNote();
+
+      // 绑定事件
+      saveBtn.addEventListener('click', saveNote);
+      backBtn.addEventListener('click', confirmBack);
+      document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+          e.preventDefault();
+          saveNote();
+        }
+      });
+      window.addEventListener('beforeunload', handleBeforeUnload);
+    });
+  </script>
+</body>
+</html>

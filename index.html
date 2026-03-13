@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📖 双记</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    body {
+      -webkit-font-smoothing: antialiased;
+      background-color: #f5f2ee;
+      margin: 0;
+      padding: 0;
+    }
+    .full-screen-container {
+      min-height: 100vh;
+      height: 100%;
+    }
+    .book-divider {
+      border-left: 2px dashed #d7ccc8;
+      height: 100%;
+    }
+    .plan-item, .note-card {
+      transition: all 0.2s;
+    }
+    .plan-item:hover {
+      background-color: #faf0e6;
+    }
+    .note-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(0,0,0,0.05);
+    }
+    .plan-item.completed .plan-text {
+      text-decoration: line-through;
+      color: #9e9e9e;
+    }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
+    
+    /* 手记卡片内容最多显示3行 */
+    .note-content {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      line-height: 1.5;
+      max-height: calc(1.5em * 3);
+    }
+    /* 手记列表容器固定高度 */
+    #notes-list {
+      max-height: calc(100vh - 150px);
+      height: 100%;
+      overflow-y: auto;
+    }
+    /* 搜索框样式 */
+    .search-input {
+      border: 1px solid #f3e8dc;
+      transition: all 0.2s;
+    }
+    .search-input:focus {
+      border-color: #f59e0b;
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+      outline: none;
+    }
+    /* 移动端适配 */
+    @media (max-width: 768px) {
+      #notes-list {
+        max-height: calc(100vh - 200px);
+      }
+      .plan-list {
+        min-height: calc(100vh - 220px);
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen font-sans">
+
+  <div class="full-screen-container max-w-none mx-auto bg-white/90 backdrop-blur-sm rounded-0 shadow-none overflow-hidden border border-amber-100 flex flex-col md:flex-row">
+
+    <!-- 左侧：计划模块 -->
+    <div class="w-full md:w-2/5 p-5 md:p-6 bg-[#fff9f5] border-b md:border-b-0 md:border-r border-dashed border-amber-200 h-full">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-2xl font-light text-stone-700 flex items-center gap-2">
+          <i class="bi bi-check2-square text-amber-600"></i> 计划
+        </h2>
+        <div class="flex gap-2 text-sm">
+          <button id="filter-all" class="filter-btn px-3 py-1 rounded-full bg-amber-200 border border-amber-200 text-stone-600 hover:bg-amber-100 transition font-medium">全部</button>
+          <button id="filter-active" class="filter-btn px-3 py-1 rounded-full bg-white/70 border border-amber-200 text-stone-600 hover:bg-amber-100 transition">进行中</button>
+          <button id="filter-completed" class="filter-btn px-3 py-1 rounded-full bg-white/70 border border-amber-200 text-stone-600 hover:bg-amber-100 transition">已完成</button>
+        </div>
+      </div>
+
+      <ul id="plan-list" class="space-y-2 mb-4 overflow-y-auto pr-1 min-h-[calc(100vh-180px)]"></ul>
+
+      <div class="flex items-center gap-2 mt-4 pt-3 border-t border-dashed border-amber-200">
+        <input type="text" id="new-plan-input" placeholder="写一个新计划..." class="flex-1 px-4 py-2 rounded-full border border-amber-200 bg-white/70 focus:outline-none focus:ring-2 focus:ring-amber-300 text-sm">
+        <button id="add-plan-btn" class="bg-amber-600 hover:bg-amber-700 text-white w-9 h-9 rounded-full flex items-center justify-center shadow-sm transition">
+          <i class="bi bi-plus-lg"></i>
+        </button>
+      </div>
+
+      <p id="plan-empty-msg" class="text-center text-stone-400 text-sm mt-6 hidden">✨ 暂无计划，添加一条吧</p>
+    </div>
+
+    <!-- 右侧：手记模块 -->
+    <div class="w-full md:w-3/5 p-5 md:p-6 bg-[#fffdfa] h-full">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-2xl font-light text-stone-700 flex items-center gap-2">
+          <i class="bi bi-journal-text text-amber-600"></i> 手记
+        </h2>
+        <div class="flex items-center gap-3">
+          <!-- 搜索框 -->
+          <div class="relative">
+            <input type="text" id="note-search-input" placeholder="搜索手记..." class="search-input pl-8 pr-3 py-1.5 rounded-full text-sm bg-white/80 w-36 md:w-48">
+            <i class="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-sm"></i>
+          </div>
+          <!-- 新增笔记按钮 -->
+          <button id="add-note-btn" class="text-amber-600 hover:text-amber-800 text-xl w-9 h-9 flex items-center justify-center rounded-full hover:bg-amber-50 transition">
+            <i class="bi bi-plus-circle"></i>
+          </button>
+        </div>
+      </div>
+
+      <div id="notes-list" class="grid grid-cols-1 gap-3 overflow-y-auto pr-1"></div>
+
+      <!-- 手记分类导航 -->
+      <div id="note-category-nav" class="flex flex-wrap gap-2 mt-4 pt-3 border-t border-dashed border-amber-100 hidden">
+        <!-- 动态生成年月分类标签 -->
+      </div>
+
+      <div id="note-empty-placeholder" class="text-center py-8 text-stone-400 hidden">
+        <i class="bi bi-journal-richtext text-4xl mb-2"></i>
+        <p>还没有任何手记，点击 + 写第一篇</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/storage.js"></script>
+
+  <script>
+    (function() {
+      // 计划模块数据
+      let plans = [];
+      let currentFilter = 'all';
+
+      // 工具函数：时间格式化
+      function formatNoteTime(timeStr) {
+        if (!timeStr) return '未设置时间';
+        try {
+          const weekMap = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+          const date = new Date(timeStr);
+          if (isNaN(date.getTime())) return '时间格式错误';
+          const month = (date.getMonth() + 1).toString().padStart(2, '0');
+          const day = date.getDate().toString().padStart(2, '0');
+          const week = weekMap[date.getDay()];
+          return `${month}-${day} ${week}`;
+        } catch (e) {
+          return '时间解析失败';
+        }
+      }
+
+      function getNoteYearMonth(timeStr) {
+        if (!timeStr) return '未分类';
+        try {
+          return timeStr.split(' ')[0].substring(0, 7);
+        } catch (e) {
+          return '未分类';
+        }
+      }
+
+      function formatYearMonth(yearMonth) {
+        if (yearMonth === '未分类') return '未分类';
+        try {
+          const [year, month] = yearMonth.split('-');
+          if (!year || !month) return '未分类';
+          const now = new Date();
+          const currentYear = now.getFullYear().toString();
+          if (year === currentYear) {
+            return `${parseInt(month)}月`;
+          } else {
+            return `${year}年`;
+          }
+        } catch (e) {
+          return '未分类';
+        }
+      }
+
+      // 计划模块逻辑
+      function loadPlans() {
+        try {
+          const stored = localStorage.getItem('plans');
+          plans = stored ? JSON.parse(stored) : [];
+        } catch (e) {
+          console.error('加载计划数据失败：', e);
+          plans = [];
+        }
+        plans = plans.map(p => ({ ...p, completed: p.completed || false }));
+      }
+
+      function savePlans() {
+        localStorage.setItem('plans', JSON.stringify(plans));
+      }
+
+      function addPlan(text) {
+        if (!text.trim()) return;
+        const newPlan = {
+          id: Date.now() + Math.random(),
+          text: text.trim(),
+          completed: false,
+        };
+        plans.push(newPlan);
+        savePlans();
+        renderPlans(currentFilter);
+        document.getElementById('new-plan-input').value = '';
+      }
+
+      function togglePlan(id) {
+        const plan = plans.find(p => p.id == id);
+        if (plan) {
+          plan.completed = !plan.completed;
+          savePlans();
+          renderPlans(currentFilter);
+        }
+      }
+
+      function deletePlan(id) {
+        plans = plans.filter(p => p.id != id);
+        savePlans();
+        renderPlans(currentFilter);
+      }
+
+      function renderPlans(filter) {
+        const listEl = document.getElementById('plan-list');
+        const emptyMsg = document.getElementById('plan-empty-msg');
+        if (!listEl) return;
+
+        let filteredPlans = plans;
+        if (filter === 'active') {
+          filteredPlans = plans.filter(p => !p.completed);
+        } else if (filter === 'completed') {
+          filteredPlans = plans.filter(p => p.completed);
+        }
+
+        if (filteredPlans.length === 0) {
+          listEl.innerHTML = '';
+          emptyMsg.classList.remove('hidden');
+        } else {
+          emptyMsg.classList.add('hidden');
+          listEl.innerHTML = filteredPlans.map(plan => `
+            <li class="plan-item flex items-center gap-2 p-2 rounded-xl bg-white/60 border border-amber-100 ${plan.completed ? 'completed' : ''}">
+              <input type="checkbox" class="w-4 h-4 accent-amber-600 rounded-full" ${plan.completed ? 'checked' : ''} data-id="${plan.id}">
+              <span class="plan-text flex-1 text-stone-700 text-sm">${escapeHtml(plan.text)}</span>
+              <button class="delete-plan text-stone-400 hover:text-red-500" data-id="${plan.id}">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </li>
+          `).join('');
+        }
+
+        bindPlanEvents();
+        highlightFilter(filter);
+      }
+
+      function escapeHtml(str) {
+        return String(str).replace(/[&<>"]/g, function(m) {
+          if (m === '&') return '&amp;';
+          if (m === '<') return '&lt;';
+          if (m === '>') return '&gt;';
+          if (m === '"') return '&quot;';
+          return m;
+        });
+      }
+
+      function bindPlanEvents() {
+        document.querySelectorAll('#plan-list input[type="checkbox"]').forEach(cb => {
+          cb.addEventListener('change', (e) => {
+            const id = e.target.dataset.id;
+            togglePlan(id);
+          });
+        });
+
+        document.querySelectorAll('#plan-list .delete-plan').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = e.currentTarget.dataset.id;
+            if (confirm('删除此计划？')) {
+              deletePlan(id);
+            }
+          });
+        });
+      }
+
+      function highlightFilter(activeFilter) {
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+          btn.classList.remove('bg-amber-200', 'font-medium');
+          btn.classList.add('bg-white/70');
+        });
+        let targetBtn;
+        if (activeFilter === 'all') targetBtn = document.getElementById('filter-all');
+        else if (activeFilter === 'active') targetBtn = document.getElementById('filter-active');
+        else if (activeFilter === 'completed') targetBtn = document.getElementById('filter-completed');
+        if (targetBtn) {
+          targetBtn.classList.add('bg-amber-200', 'font-medium');
+          targetBtn.classList.remove('bg-white/70');
+        }
+      }
+
+      // 手记模块逻辑
+      let currentSearchKey = '';
+      let currentCategory = 'all';
+
+      function renderNotes() {
+        const notesList = document.getElementById('notes-list');
+        const placeholder = document.getElementById('note-empty-placeholder');
+        const categoryNav = document.getElementById('note-category-nav');
+        
+        // 容错：确保NoteStorage存在
+        if (!window.NoteStorage) {
+          console.error('NoteStorage 未加载，请检查 js/storage.js');
+          placeholder.classList.remove('hidden');
+          notesList.innerHTML = '';
+          categoryNav.classList.add('hidden');
+          return;
+        }
+        
+        // 核心修复：强制读取最新笔记并统一ID类型
+        let notes = NoteStorage.getAllNotes() || [];
+        notes = Array.isArray(notes) ? notes.map(note => ({
+          ...note,
+          id: Number(note.id)
+        })) : [];
+
+        // 搜索过滤
+        if (currentSearchKey.trim()) {
+          const key = currentSearchKey.toLowerCase().trim();
+          notes = notes.filter(note => 
+            (note.title && note.title.toLowerCase().includes(key)) || 
+            (note.content && note.content.toLowerCase().includes(key))
+          );
+        }
+
+        // 分类过滤
+        if (currentCategory !== 'all') {
+          if (currentCategory === '未分类') {
+            notes = notes.filter(note => !note.createTime || getNoteYearMonth(note.createTime) === '未分类');
+          } else if (currentCategory.includes('月')) {
+            const monthNum = parseInt(currentCategory.replace('月', ''));
+            const currentYear = new Date().getFullYear();
+            const targetYM = `${currentYear}-${monthNum.toString().padStart(2, '0')}`;
+            notes = notes.filter(note => getNoteYearMonth(note.createTime) === targetYM);
+          } else if (currentCategory.includes('年')) {
+            const year = currentCategory.replace('年', '');
+            notes = notes.filter(note => {
+              const ym = getNoteYearMonth(note.createTime);
+              return ym !== '未分类' && ym.startsWith(year);
+            });
+          }
+        }
+
+        // 渲染空状态
+        if (notes.length === 0) {
+          notesList.innerHTML = '';
+          placeholder.classList.remove('hidden');
+          categoryNav.classList.add('hidden');
+          return;
+        }
+
+        // 生成分类导航
+        placeholder.classList.add('hidden');
+        const categories = new Set();
+        notes.forEach(note => {
+          const ym = getNoteYearMonth(note.createTime);
+          categories.add(formatYearMonth(ym));
+        });
+        const categoryList = Array.from(categories).sort((a, b) => {
+          if (a === '未分类') return 1;
+          if (b === '未分类') return -1;
+          if (a.includes('月') && b.includes('月')) {
+            return parseInt(b.replace('月', '')) - parseInt(a.replace('月', ''));
+          }
+          if (a.includes('年') && b.includes('年')) {
+            return parseInt(b.replace('年', '')) - parseInt(a.replace('年', ''));
+          }
+          return a.includes('月') ? -1 : 1;
+        });
+
+        // 渲染分类导航
+        categoryNav.innerHTML = `
+          <button class="category-btn px-3 py-1 rounded-full text-sm ${currentCategory === 'all' ? 'bg-amber-100 text-amber-800 font-medium' : 'bg-white/70 border border-amber-100 text-stone-600 hover:bg-amber-50 transition'}" data-category="all">全部</button>
+          ${categoryList.map(cat => `
+            <button class="category-btn px-3 py-1 rounded-full text-sm ${currentCategory === cat ? 'bg-amber-100 text-amber-800 font-medium' : 'bg-white/70 border border-amber-100 text-stone-600 hover:bg-amber-50 transition'}" data-category="${cat}">${cat}</button>
+          `).join('')}
+        `;
+        categoryNav.classList.remove('hidden');
+
+        // 绑定分类点击事件
+        document.querySelectorAll('.category-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            currentCategory = e.target.dataset.category;
+            renderNotes();
+          });
+        });
+
+        // 渲染手记列表
+        notesList.innerHTML = notes.map(note => `
+          <div class="note-card bg-white rounded-xl p-4 shadow-sm border border-stone-100 cursor-pointer" data-id="${note.id}">
+            <div class="flex justify-between items-start mb-1">
+              <h3 class="font-medium text-stone-800">${escapeHtml(note.title || '无标题')}</h3>
+              <button class="delete-note text-stone-400 hover:text-red-500" data-id="${note.id}">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+            <p class="text-stone-600 text-sm note-content">${escapeHtml(note.content || '无内容')}</p>
+            <p class="text-stone-400 text-xs mt-2">${formatNoteTime(note.createTime)}</p>
+          </div>
+        `).join('');
+
+        bindNoteEvents();
+      }
+
+      function bindNoteEvents() {
+        // 删除笔记
+        document.querySelectorAll('.delete-note').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = parseInt(e.currentTarget.dataset.id);
+            if (confirm('删除这条手记？')) {
+              NoteStorage.deleteNote(id);
+              renderNotes();
+            }
+          });
+        });
+
+        // 点击卡片编辑
+        document.querySelectorAll('.note-card').forEach(card => {
+          card.addEventListener('click', () => {
+            const id = card.dataset.id;
+            window.location.href = `note-detail.html?id=${encodeURIComponent(id)}`;
+          });
+        });
+
+        // 搜索框防抖
+        let searchDebounceTimer;
+        const searchInput = document.getElementById('note-search-input');
+        if (searchInput) {
+          searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(() => {
+              currentSearchKey = e.target.value;
+              renderNotes();
+            }, 300);
+          });
+        }
+      }
+
+      // 初始化函数
+      function init() {
+        // 读取URL参数，强制显示全部笔记
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('category') === 'all') {
+          currentCategory = 'all';
+        }
+
+        // 初始化计划
+        loadPlans();
+        renderPlans(currentFilter);
+
+        // 初始化手记（强制延迟渲染确保数据加载）
+        renderNotes();
+        setTimeout(renderNotes, 100);
+
+        // 计划模块事件
+        document.getElementById('add-plan-btn')?.addEventListener('click', () => {
+          const input = document.getElementById('new-plan-input');
+          addPlan(input?.value || '');
+        });
+
+        document.getElementById('new-plan-input')?.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') addPlan(e.target.value);
+        });
+
+        document.getElementById('filter-all')?.addEventListener('click', () => {
+          currentFilter = 'all';
+          renderPlans(currentFilter);
+        });
+
+        document.getElementById('filter-active')?.addEventListener('click', () => {
+          currentFilter = 'active';
+          renderPlans(currentFilter);
+        });
+
+        document.getElementById('filter-completed')?.addEventListener('click', () => {
+          currentFilter = 'completed';
+          renderPlans(currentFilter);
+        });
+
+        // 手记模块事件
+        document.getElementById('add-note-btn')?.addEventListener('click', () => {
+          window.location.href = 'note-detail.html';
+        });
+
+        // 搜索框回车阻止默认行为
+        document.getElementById('note-search-input')?.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') e.preventDefault();
+        });
+      }
+
+      // 页面加载完成初始化
+      document.addEventListener('DOMContentLoaded', init);
+    })();
+  </script>
+</body>
+</html>
