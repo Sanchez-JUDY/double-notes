@@ -29,7 +29,7 @@
 
 # 🛠️ 技术栈
 
-- HTML：语义化标签，结构清晰。
+- HTML：语义化标签
 - CSS3：Flexbox 布局，响应式媒体查询，CSS 变量管理主题色。
 - JavaScript (ES6+)：
   - 原生 DOM 操作与事件委托。
