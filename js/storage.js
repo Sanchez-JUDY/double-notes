@@ -1,17 +1,15 @@
 window.NoteStorage = {
-  // 存储键名
   STORAGE_KEY: 'iphone_notes',
 
-  // 获取所有笔记
   getAllNotes() {
     try {
       const notesStr = localStorage.getItem(this.STORAGE_KEY);
       let notes = notesStr ? JSON.parse(notesStr) : [];
       if (!Array.isArray(notes)) notes = [];
-      // 统一ID为数字类型，避免匹配失败
       return notes.map(note => ({
         ...note,
-        id: Number(note.id)
+        id: Number(note.id),
+        noteDate: note.noteDate || new Date().toISOString().split('T')[0]
       }));
     } catch (e) {
       console.error('读取笔记失败：', e);
@@ -19,33 +17,40 @@ window.NoteStorage = {
     }
   },
 
-  // 生成唯一ID
   generateId() {
     return Number(Date.now() + Math.floor(Math.random() * 1000));
   },
 
-  // 格式化时间
   formatTime() {
     const now = new Date();
     return `${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
   },
 
-  // 添加新笔记
   addNote(note) {
     try {
       if (!note || typeof note !== 'object') {
-        console.warn('添加笔记失败：无效的笔记数据');
+        console.warn('添加笔记失败');
         return null;
       }
       const notes = this.getAllNotes();
       const newNote = {
-        id: this.generateId(),
-        title: note.title?.trim() || '',
-        content: note.content?.trim() || '',
-        createTime: this.formatTime(),
-        updateTime: this.formatTime()
-      };
-      notes.unshift(newNote); // 最新笔记排在最前面
+  id: this.generateId(),
+  title: note.title?.trim() || '今日职场复盘',
+  content: note.content?.trim() || `【今日完成工作】
+
+
+【未完成&待跟进事项】
+
+
+【遇到问题&原因反思】
+
+
+【明日工作计划】`,
+  createTime: this.formatTime(),
+  updateTime: this.formatTime(),
+  priority: note.priority || 'middle',
+  noteDate: new Date().toISOString().split('T')[0]
+};      notes.unshift(newNote);
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(notes));
       return newNote;
     } catch (e) {
@@ -54,7 +59,6 @@ window.NoteStorage = {
     }
   },
 
-  // 根据ID获取笔记
   getNoteById(id) {
     try {
       const noteId = Number(id);
@@ -67,7 +71,6 @@ window.NoteStorage = {
     }
   },
 
-  // 更新笔记
   updateNote(updatedNote) {
     try {
       if (!updatedNote || !updatedNote.id) {
@@ -83,7 +86,9 @@ window.NoteStorage = {
           ...notes[index],
           title: updatedNote.title?.trim() || '',
           content: updatedNote.content?.trim() || '',
-          updateTime: this.formatTime()
+          priority: updatedNote.priority || notes[index].priority || 'middle',
+          updateTime: this.formatTime(),
+          noteDate: notes[index].noteDate || new Date().toISOString().split('T')[0]
         };
         localStorage.setItem(this.STORAGE_KEY, JSON.stringify(notes));
         return true;
@@ -95,7 +100,6 @@ window.NoteStorage = {
     }
   },
 
-  // 删除笔记
   deleteNote(id) {
     try {
       const noteId = Number(id);
