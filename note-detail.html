@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>编辑手记 - 计划·手记</title>
+  <title>编辑手记 - 计划·复盘</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <style>
@@ -70,12 +70,12 @@
       <input 
         type="text" 
         id="note-title" 
-        placeholder="输入标题（可选）..." 
+        placeholder="输入标题..." 
         class="w-full text-2xl font-medium mb-6 px-2 py-2"
       >
       <textarea 
         id="note-content" 
-        placeholder="输入手记内容..." 
+        placeholder="请输入..." 
         class="w-full min-h-[calc(100vh-200px)] text-base px-2 py-2 leading-relaxed text-stone-700"
       ></textarea>
     </main>
@@ -96,6 +96,23 @@
       const noteId = noteIdStr ? Number(noteIdStr) : null;
       let currentNote = null;
 
+      // ✅ 职场复盘固定模板
+      const WORK_TEMPLATE = `【今日完成工作】
+
+
+
+【未完成/待跟进】
+
+
+
+【遇到问题&反思】
+
+
+
+【明日工作计划】`;
+
+
+
       // 初始化笔记
       function initNote() {
         if (noteId && !isNaN(noteId)) {
@@ -106,12 +123,15 @@
             originalTitle = titleInput.value;
             originalContent = contentInput.value;
           } else {
-            alert('⚠️ 未找到该手记，将创建新笔记');
+            alert('⚠️ 未找到该手记');
             history.replaceState({}, document.title, window.location.pathname);
           }
         } else {
-          originalTitle = '';
-          originalContent = '';
+          // ✅ 新建笔记：自动填充模板
+          titleInput.value = "今日复盘";
+          contentInput.value = WORK_TEMPLATE;
+          originalTitle = titleInput.value;
+          originalContent = contentInput.value;
         }
       }
 
@@ -128,7 +148,7 @@
       // 保存笔记
       function saveNote() {
         if (isContentEmpty()) {
-          alert('❌ 标题和内容不能同时为空，请至少填写一项');
+          alert('❌ 标题和内容不能同时为空');
           contentInput.focus();
           return false;
         }
@@ -149,7 +169,7 @@
             saveSuccess = newNote !== null;
           }
         } catch (e) {
-          console.error('保存笔记失败：', e);
+          console.error('保存失败：', e);
           saveSuccess = false;
         }
 
@@ -157,10 +177,9 @@
           originalTitle = titleInput.value;
           originalContent = contentInput.value;
           alert('✅ 保存成功！');
-          // 跳转到首页并强制显示全部笔记
           window.location.href = 'index.html?category=all';
         } else {
-          alert('❌ 保存失败，请重试！');
+          alert('❌ 保存失败');
         }
         return saveSuccess;
       }
